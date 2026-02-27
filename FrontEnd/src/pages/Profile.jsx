@@ -13,7 +13,6 @@ export default function Profile() {
         location: user?.user_metadata?.location || '',
         bio: user?.user_metadata?.bio || '',
     });
-
     const [passwords, setPasswords] = useState({
         current: '',
         newPass: '',
