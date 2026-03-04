@@ -12,6 +12,8 @@ import Health from './pages/Health';
 import Reports from './pages/Reports';
 import Profile from './pages/Profile';
 import Analyze from './pages/Analyze';
+import HardwareTab from './components/HardwareTab';
+
 
 export default function App() {
   return (
@@ -22,10 +24,12 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/ai-insights" element={<AIInsights />} />
+          <Route path="/hardware" element={<HardwareTab />} />
+
           {/* Protected */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
-          <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
           <Route path="/health" element={<ProtectedRoute><Health /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

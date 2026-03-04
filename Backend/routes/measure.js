@@ -37,6 +37,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             detections: data.detections,
             imageFile: req.file.originalname,
             simulated: data.simulated || false,
+            zenabId: req.body.zenabId,
         });
         await measurement.save();
 
@@ -52,7 +53,9 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 // GET /api/measure/history — last 50 measurements
 router.get('/history', async (req, res) => {
     try {
-        const measurements = await Measurement.find().sort({ createdAt: -1 }).limit(50);
+        const { zenabId } = req.query;
+        const filter = zenabId ? { zenabId } : {};
+        const measurements = await Measurement.find(filter).sort({ createdAt: -1 }).limit(50);
         res.json(measurements);
     } catch (err) {
         res.status(500).json({ error: err.message });

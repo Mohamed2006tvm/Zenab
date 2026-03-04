@@ -9,6 +9,7 @@ const measurementSchema = new mongoose.Schema({
     detections: { type: Number },
     imageFile: { type: String },
     simulated: { type: Boolean, default: false },
+    zenabId: { type: String },
     createdAt: { type: Date, default: Date.now },
 });
 

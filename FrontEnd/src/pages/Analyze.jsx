@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const STATUS_CONFIG = {
     'Good': { color: '#10b981', label: 'Good', emoji: '🟢', tip: 'Air quality is excellent. Safe for everyone including sensitive groups.' },
@@ -58,6 +59,7 @@ function AQIGauge({ aqi }) {
 }
 
 export default function Analyze() {
+    const { user } = useAuth();
     const [preview, setPreview] = useState(null);
     const [file, setFile] = useState(null);
     const [result, setResult] = useState(null);
@@ -67,9 +69,11 @@ export default function Analyze() {
     const [dragging, setDragging] = useState(false);
     const fileRef = useRef();
 
+    const zenabId = user?.user_metadata?.full_name?.match(/\(ID: (.*?)\)/)?.[1] || '';
+
     useEffect(() => {
-        api.get('/measure/history').then(r => setHistory(r.data)).catch(() => { });
-    }, []);
+        api.get('/measure/history', { params: { zenabId } }).then(r => setHistory(r.data)).catch(() => { });
+    }, [zenabId]);
 
     const handleFile = useCallback((f) => {
         if (!f || !f.type.startsWith('image/')) return;
@@ -95,6 +99,7 @@ export default function Analyze() {
         try {
             const form = new FormData();
             form.append('image', file);
+            form.append('zenabId', zenabId);
             const res = await api.post('/measure/analyze', form, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
@@ -304,6 +309,7 @@ export default function Analyze() {
                                                 <th className="px-5 py-3 text-right text-emerald-400 font-medium">PM2.5 (µg/m³)</th>
                                                 <th className="px-5 py-3 text-right text-cyan-400 font-medium">PM10 (µg/m³)</th>
                                                 <th className="px-5 py-3 text-right text-slate-400 font-medium">AQI</th>
+                                                <th className="px-5 py-3 text-left text-slate-400 font-medium">User ID</th>
                                                 <th className="px-5 py-3 text-left text-slate-400 font-medium">Status</th>
                                                 <th className="px-5 py-3 text-left text-slate-400 font-medium">Time</th>
                                             </tr>
@@ -317,6 +323,7 @@ export default function Analyze() {
                                                         <td className="px-5 py-3 text-right font-bold text-emerald-400">{m.pm25}</td>
                                                         <td className="px-5 py-3 text-right font-bold text-cyan-400">{m.pm10}</td>
                                                         <td className="px-5 py-3 text-right font-semibold" style={{ color: c.color }}>{m.aqi}</td>
+                                                        <td className="px-5 py-3 text-slate-400 font-mono text-xs">{m.zenabId || 'N/A'}</td>
                                                         <td className="px-5 py-3 text-xs font-medium" style={{ color: c.color }}>{c.emoji} {m.status}</td>
                                                         <td className="px-5 py-3 text-slate-500 text-xs">
                                                             {m.createdAt ? new Date(m.createdAt).toLocaleString() : 'Just now'}
