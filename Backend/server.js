@@ -2,14 +2,48 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// ─── Security Headers ────────────────────────────────────────────────────────
+app.use(helmet({
+    crossOriginEmbedderPolicy: false, // allow Power BI iframes
+    contentSecurityPolicy: false,     // handled by Vite in production
+}));
 
-// Routes
+// ─── CORS ────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:4173', // vite preview
+];
+app.use(cors({
+    origin: (origin, cb) => {
+        // allow requests with no origin (e.g. curl, mobile apps)
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        cb(new Error(`CORS: origin '${origin}' not allowed`));
+    },
+    credentials: true,
+}));
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api', limiter);
+
+// ─── Body Parser ──────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/stations', require('./routes/stations'));
 app.use('/api/aqi', require('./routes/aqi'));
 app.use('/api/health', require('./routes/health'));
@@ -20,8 +54,7 @@ app.get('/', (req, res) => {
     res.json({ message: 'Zenab API is running', version: '1.0.0' });
 });
 
-// ─── Power BI Status & Test ────────────────────────────────────────────────────
-// GET /api/powerbi/status — tells the frontend whether Power BI is configured
+// ─── Power BI Status & Test ───────────────────────────────────────────────────
 app.get('/api/powerbi/status', (req, res) => {
     const pushUrl = process.env.POWERBI_PUSH_URL;
     res.json({
@@ -30,8 +63,7 @@ app.get('/api/powerbi/status', (req, res) => {
     });
 });
 
-// POST /api/powerbi/push — manual test push with sample data
-app.post('/api/powerbi/push', async (req, res) => {
+app.post('/api/powerbi/push', async (req, res, next) => {
     const pushUrl = process.env.POWERBI_PUSH_URL;
     if (!pushUrl || !pushUrl.trim()) {
         return res.status(400).json({ error: 'POWERBI_PUSH_URL is not configured in .env' });
@@ -55,12 +87,26 @@ app.post('/api/powerbi/push', async (req, res) => {
         console.log('✅ Manual Power BI test push successful');
         res.json({ success: true, pushed: row });
     } catch (err) {
-        console.error('❌ Power BI test push failed:', err.message);
-        res.status(502).json({ error: 'Power BI push failed: ' + err.message });
+        next(err);
     }
 });
 
-// Connect to MongoDB and start server
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+    console.error('❌ Unhandled error:', err.message);
+    const status = err.status || 500;
+    res.status(status).json({
+        error: status === 500 ? 'Internal server error' : err.message,
+    });
+});
+
+// ─── 404 handler ─────────────────────────────────────────────────────────────
+app.use((req, res) => {
+    res.status(404).json({ error: `Route '${req.path}' not found` });
+});
+
+// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/zenab';
 
@@ -75,4 +121,3 @@ mongoose
         console.error('❌ MongoDB connection error:', err.message);
         process.exit(1);
     });
-
