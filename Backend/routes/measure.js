@@ -8,7 +8,36 @@ const Measurement = require('../models/Measurement');
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// POST /api/measure/analyze  — forward image to ML service, save result
+// ─── Power BI Push Helper ─────────────────────────────────────────────────────
+// Pushes a single measurement row to a Power BI Streaming Dataset.
+// The push URL is set via POWERBI_PUSH_URL in .env (no OAuth needed).
+// Failure is logged but does NOT fail the main response.
+async function pushToPowerBI(data) {
+    const pushUrl = process.env.POWERBI_PUSH_URL;
+    if (!pushUrl) return; // not configured — skip silently
+
+    const row = [{
+        timestamp: new Date().toISOString(),
+        pm25: data.pm25,
+        pm10: data.pm10,
+        aqi: data.aqi,
+        status: data.status,
+        confidence: data.confidence ?? null,
+        simulated: data.simulated || false,
+    }];
+
+    try {
+        await axios.post(pushUrl, row, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000,
+        });
+        console.log('✅ Power BI push successful — AQI:', data.aqi, '| Status:', data.status);
+    } catch (err) {
+        console.error('⚠️  Power BI push failed (non-fatal):', err.message);
+    }
+}
+
+// POST /api/measure/analyze  — forward image to ML service, save result, push to Power BI
 router.post('/analyze', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
@@ -40,6 +69,9 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             zenabId: req.body.zenabId,
         });
         await measurement.save();
+
+        // Push to Power BI (fire-and-forget — does not block response)
+        pushToPowerBI(data);
 
         res.json({ ...data, id: measurement._id, savedAt: measurement.createdAt });
     } catch (err) {
