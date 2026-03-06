@@ -21,11 +21,11 @@ export default function Signup() {
     };
 
     const checkRequirements = async () => {
-        if (!window.isSecureContext) throw new Error('Bluetooth requires a secure connection (HTTPS). Please ensure you are visiting via https:// or localhost.');
+        // if (!window.isSecureContext) throw new Error('Bluetooth requires a secure connection (HTTPS). Please ensure you are visiting via https:// or localhost.');
         if (!navigator.onLine) throw new Error('Wi-Fi or Network access is required to sign up.');
-        if (!navigator.bluetooth) throw new Error('Bluetooth is not supported on this browser/device.');
-        const btAvailable = await navigator.bluetooth.getAvailability();
-        if (!btAvailable) throw new Error('System Bluetooth is currently unavailable or disabled.');
+        // if (!navigator.bluetooth) throw new Error('Bluetooth is not supported on this browser/device.');
+        // const btAvailable = await navigator.bluetooth.getAvailability();
+        // if (!btAvailable) throw new Error('System Bluetooth is currently unavailable or disabled.');
     };
 
     const handleSubmit = async (e) => {
@@ -44,7 +44,7 @@ export default function Signup() {
         try {
             await checkRequirements();
         } catch (err) {
-            setError(err.message || 'You must allow Bluetooth access to sign up.');
+            setError(err.message || 'Network access is required to sign up.');
             return;
         }
 
@@ -70,7 +70,7 @@ export default function Signup() {
         try {
             await checkRequirements();
         } catch (err) {
-            setError(err.message || 'You must allow Bluetooth access to sign up.');
+            setError(err.message || 'Network access is required to sign up.');
             return;
         }
 
