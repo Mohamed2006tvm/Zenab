@@ -9,7 +9,9 @@ const navLinks = [
     { to: '/ai-insights', label: 'AI Insights', protected: false },
     { to: '/health', label: 'Health', protected: true },
     { to: '/reports', label: 'Reports', protected: true },
+    { to: '/system-control', label: 'System', protected: true },
     { to: '/hardware', label: 'Hardware', protected: false },
+    { to: '/about', label: 'About', protected: false },
 ];
 
 export default function Navbar() {

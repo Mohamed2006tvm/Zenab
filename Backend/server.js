@@ -1,10 +1,10 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const supabase = require('./lib/supabase');
 
 const app = express();
 
@@ -51,7 +51,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/measure', require('./routes/measure'));
 
 app.get('/', (req, res) => {
-    res.json({ message: 'Zenab API is running', version: '1.0.0' });
+    res.json({ message: 'Zenab API (Supabase) is running', version: '1.0.0' });
 });
 
 // ─── Power BI Status & Test ───────────────────────────────────────────────────
@@ -108,16 +108,7 @@ app.use((req, res) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/zenab';
 
-mongoose
-    .connect(MONGO_URI)
-    .then(() => {
-        console.log('✅ MongoDB connected to:', MONGO_URI);
-        console.log('🔌 Power BI push:', process.env.POWERBI_PUSH_URL ? '✅ Configured' : '⚠️  Not configured (set POWERBI_PUSH_URL in .env)');
-        app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
-    })
-    .catch((err) => {
-        console.error('❌ MongoDB connection error:', err.message);
-        process.exit(1);
-    });
+console.log('✅ Supabase connected (Client Initialized)');
+console.log('🔌 Power BI push:', process.env.POWERBI_PUSH_URL ? '✅ Configured' : '⚠️  Not configured (set POWERBI_PUSH_URL in .env)');
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

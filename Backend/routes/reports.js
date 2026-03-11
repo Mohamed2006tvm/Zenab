@@ -1,11 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const Station = require('../models/Station');
+const supabase = require('../lib/supabase');
 
 // GET daily report - all cities with AQI data
 router.get('/daily', async (req, res) => {
     try {
-        const stations = await Station.find().sort({ aqi: -1 });
+        const { data: stations, error } = await supabase
+            .from('stations')
+            .select('*')
+            .order('aqi', { ascending: false });
+
+        if (error) throw error;
+
         const report = stations.map((s) => ({
             city: s.city,
             state: s.state,
@@ -26,8 +32,14 @@ router.get('/daily', async (req, res) => {
 // GET top 10 most polluted cities
 router.get('/top-polluted', async (req, res) => {
     try {
-        const stations = await Station.find().sort({ aqi: -1 }).limit(10);
-        res.json(stations);
+        const { data, error } = await supabase
+            .from('stations')
+            .select('*')
+            .order('aqi', { ascending: false })
+            .limit(10);
+
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -36,8 +48,14 @@ router.get('/top-polluted', async (req, res) => {
 // GET cleanest cities
 router.get('/cleanest', async (req, res) => {
     try {
-        const stations = await Station.find().sort({ aqi: 1 }).limit(10);
-        res.json(stations);
+        const { data, error } = await supabase
+            .from('stations')
+            .select('*')
+            .order('aqi', { ascending: true })
+            .limit(10);
+
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

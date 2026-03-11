@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const HealthAssessment = require('../models/HealthAssessment');
+const supabase = require('../lib/supabase');
 
 function generateRecommendation(age, conditions, activityLevel, currentAqi) {
     const aqiLevel = currentAqi || 100;
@@ -83,19 +83,23 @@ router.post('/assess', async (req, res) => {
             currentAqi
         );
 
-        const assessment = new HealthAssessment({
-            userId,
-            age,
-            conditions,
-            activityLevel,
-            currentAqi,
-            riskLevel,
-            recommendation,
-            tips,
-        });
+        const { data, error } = await supabase
+            .from('health_assessments')
+            .insert([{
+                user_id: userId || null,
+                age,
+                conditions: conditions || [],
+                activity_level: activityLevel,
+                current_aqi: currentAqi,
+                risk_level: riskLevel,
+                recommendation,
+                tips: tips || []
+            }])
+            .select()
+            .single();
 
-        await assessment.save();
-        res.json({ riskLevel, recommendation, tips });
+        if (error) throw error;
+        res.json({ riskLevel, recommendation, tips, id: data.id });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -104,10 +108,15 @@ router.post('/assess', async (req, res) => {
 // GET recent assessments for a user
 router.get('/history/:userId', async (req, res) => {
     try {
-        const assessments = await HealthAssessment.find({ userId: req.params.userId })
-            .sort({ createdAt: -1 })
+        const { data, error } = await supabase
+            .from('health_assessments')
+            .select('*')
+            .eq('user_id', req.params.userId)
+            .order('created_at', { ascending: false })
             .limit(10);
-        res.json(assessments);
+
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

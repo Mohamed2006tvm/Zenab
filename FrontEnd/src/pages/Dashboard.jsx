@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import AQICard from '../components/AQICard';
+import SmartAlert from '../components/SmartAlert';
 import api from '../lib/api';
 
 const quickLinks = [
-    { to: '/map', label: 'Interactive Map', icon: '🗺️', desc: 'View AQI heatmap across India' },
-    { to: '/health', label: 'Health Assessment', icon: '❤️', desc: 'Get personalized health advice' },
-    { to: '/reports', label: 'Generate Report', icon: '📊', desc: 'Download & view AQI reports' },
-    { to: '/ai-insights', label: 'AI Insights', icon: '🤖', desc: 'AI-powered pollution analysis' },
+    { to: '/map', label: 'Interactive Map', icon: '🗺️', desc: 'View AQI heatmap' },
+    { to: '/ai-insights', label: 'AI Prediction', icon: '🤖', desc: 'Predictive analytics' },
+    { to: '/analyze', label: 'Analyzer', icon: '🔬', desc: 'Analyze PM levels' },
+    { to: '/system-control', label: 'System Control', icon: '⚡', desc: 'Manage ZENAB device' },
 ];
 
 // Power BI SVG Icon
@@ -27,6 +28,34 @@ export default function Dashboard() {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // --- Live Simulation State ---
+    const [liveAqi, setLiveAqi] = useState(42);
+    const [liveTemp, setLiveTemp] = useState(24.5);
+    const [lastUpdated, setLastUpdated] = useState(new Date());
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setLiveAqi(prev => {
+                const change = (Math.random() - 0.5) * 4;
+                return Math.max(10, Math.min(450, Math.round(prev + change)));
+            });
+            setLiveTemp(prev => {
+                const change = (Math.random() - 0.5) * 0.4;
+                return parseFloat((prev + change).toFixed(1));
+            });
+            setLastUpdated(new Date());
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const statusInfo = useMemo(() => {
+        if (liveAqi <= 50) return { label: 'Safe', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' };
+        if (liveAqi <= 100) return { label: 'Moderate', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' };
+        if (liveAqi <= 150) return { label: 'Warning', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
+        return { label: 'Dangerous', color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' };
+    }, [liveAqi]);
+    // ----------------------------
 
     // Power BI Integration state
     const [showPowerBI, setShowPowerBI] = useState(false);
@@ -66,15 +95,11 @@ export default function Dashboard() {
         setPbiTesting(true);
         setPbiTestResult(null);
         try {
-            const res = await fetch('/api/powerbi/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-            const json = await res.json();
-            if (res.ok) {
-                setPbiTestResult({ ok: true, msg: '✅ Test row pushed to Power BI successfully!' });
-            } else {
-                setPbiTestResult({ ok: false, msg: '❌ ' + (json.error || 'Push failed') });
-            }
+            const res = await api.post('/powerbi/push', {});
+            const json = res.data;
+            setPbiTestResult({ ok: true, msg: '✅ Test row pushed to Power BI successfully!' });
         } catch (e) {
-            setPbiTestResult({ ok: false, msg: '❌ Network error: ' + e.message });
+            setPbiTestResult({ ok: false, msg: '❌ ' + (e.response?.data?.error || e.message) });
         } finally {
             setPbiTesting(false);
         }
@@ -84,17 +109,97 @@ export default function Dashboard() {
         <Layout>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Environmental Dashboard</h1>
-                        <p className="text-slate-400 text-sm mt-1">Real-time air quality monitoring across India</p>
+                        <h1 className="text-3xl font-extrabold text-white tracking-tight">ZENAB Monitoring</h1>
+                        <p className="text-slate-400 text-sm mt-1">AI-Powered Environmental Control Dashboard</p>
                     </div>
-                    <Link
-                        to="/map"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-sm hover:bg-emerald-500/20 transition-colors"
-                    >
-                        <span>🗺️</span> View Map
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <div className="px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                            System Active
+                        </div>
+                        <Link
+                            to="/system-control"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg text-sm hover:bg-slate-700 transition-colors"
+                        >
+                            <span>⚡</span> Control
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Smart Alert Banner */}
+                <SmartAlert aqi={liveAqi} />
+
+                {/* HERO CARD - Live Metrics */}
+                <div className="mb-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-8 overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900/40 via-[#0d1528] to-[#0a0f1e] border border-emerald-500/20 p-8 relative group">
+                        {/* Decorative background circle */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 group-hover:bg-emerald-500/10 transition-colors duration-500" />
+
+                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 py-4">
+                            <div className="text-center md:text-left">
+                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border ${statusInfo.border} ${statusInfo.bg} ${statusInfo.color}`}>
+                                    {statusInfo.label} Status
+                                </span>
+                                <div className="flex items-baseline gap-3 mb-2 justify-center md:justify-start">
+                                    <span className={`text-7xl font-black ${statusInfo.color}`}>
+                                        {liveAqi}
+                                    </span>
+                                    <span className="text-slate-500 font-bold text-xl uppercase">AQI</span>
+                                </div>
+                                <p className="text-slate-400 text-sm max-w-xs mx-auto md:mx-0">
+                                    Local air quality is {statusInfo.label.toLowerCase()}. {liveAqi > 150 ? 'Please wear a mask outdoors.' : 'Safe for all outdoor activities.'}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
+                                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm min-w-[140px]">
+                                    <div className="text-cyan-400 text-2xl mb-1">🌡️</div>
+                                    <div className="text-2xl font-bold text-white">{liveTemp}°C</div>
+                                    <div className="text-slate-500 text-xs font-medium uppercase mt-1">Temperature</div>
+                                </div>
+                                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 backdrop-blur-sm min-w-[140px]">
+                                    <div className="text-purple-400 text-2xl mb-1">⏱️</div>
+                                    <div className="text-lg font-bold text-white">{lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                                    <div className="text-slate-500 text-xs font-medium uppercase mt-1">Last Updated</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-4 grid grid-cols-1 gap-4">
+                        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-2xl">📡</div>
+                                <div>
+                                    <div className="text-white font-bold">Tree Node 01</div>
+                                    <div className="text-slate-500 text-xs mt-1">Location: Bangalore</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 justify-end">
+                                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                                    Online
+                                </div>
+                                <div className="text-slate-600 text-[10px] mt-1 font-mono">ID: ZEN-001</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                            <div className="flex items-center justify-between">
+                                <div className="text-slate-400 text-sm font-semibold">Weekly Health Risk</div>
+                                <span className="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500 text-[10px] font-black border border-yellow-500/20 uppercase">Moderate</span>
+                            </div>
+                            <div className="mt-4 flex items-end gap-1 h-12">
+                                {[35, 42, 38, 55, 62, 48, 42].map((v, i) => (
+                                    <div key={i} className="flex-1 bg-slate-800 rounded-sm hover:bg-emerald-500/40 transition-colors group relative" style={{ height: `${(v / 80) * 100}%` }}>
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{v} AQI</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Error */}
@@ -115,14 +220,14 @@ export default function Dashboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                         {[
                             { label: 'Total Stations', val: summary.total, color: 'text-cyan-400', icon: '📡' },
-                            { label: 'Hazardous Areas', val: summary.hazardous, color: 'text-red-400', icon: '⚠️' },
+                            { label: 'Hazardous Areas', val: summary.hazardous, color: 'text-rose-400', icon: '⚠️' },
                             { label: 'Safe Zones', val: summary.safe, color: 'text-emerald-400', icon: '✅' },
                             { label: 'Average AQI', val: summary.avgAqi, color: 'text-yellow-400', icon: '📈' },
                         ].map(({ label, val, color, icon }) => (
-                            <div key={label} className="bg-[#111827] border border-slate-800 rounded-xl p-5">
+                            <div key={label} className="bg-[#111827] border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-colors">
                                 <div className="text-2xl mb-2">{icon}</div>
-                                <div className={`text-3xl font-bold ${color}`}>{val}</div>
-                                <div className="text-slate-500 text-sm mt-1">{label}</div>
+                                <div className={`text-3xl font-black ${color}`}>{val}</div>
+                                <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1">{label}</div>
                             </div>
                         ))}
                     </div>
@@ -134,11 +239,11 @@ export default function Dashboard() {
                         <Link
                             key={q.to}
                             to={q.to}
-                            className="bg-[#111827] border border-slate-800 hover:border-emerald-500/40 rounded-xl p-4 transition-all hover:bg-[#1a2235] group"
+                            className="bg-[#111827] border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 transition-all hover:bg-[#1a2235] group"
                         >
-                            <div className="text-2xl mb-2">{q.icon}</div>
-                            <div className="text-white font-medium text-sm group-hover:text-emerald-400 transition-colors">{q.label}</div>
-                            <div className="text-slate-500 text-xs mt-1">{q.desc}</div>
+                            <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">{q.icon}</div>
+                            <div className="text-white font-bold text-sm group-hover:text-emerald-400 transition-colors">{q.label}</div>
+                            <div className="text-slate-500 text-[11px] mt-1 leading-relaxed">{q.desc}</div>
                         </Link>
                     ))}
                 </div>
@@ -147,7 +252,7 @@ export default function Dashboard() {
                 <div className="mb-8">
                     {/* Header card — always visible, clickable */}
                     <div
-                        className={`bg-[#111827] border rounded-xl p-5 transition-all cursor-pointer ${
+                        className={`bg-[#111827] border rounded-2xl p-5 transition-all cursor-pointer ${
                             pbiStatus?.configured
                                 ? 'border-yellow-500/40 hover:border-yellow-400/60'
                                 : 'border-slate-800 hover:border-yellow-500/30'
@@ -176,7 +281,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                                 {/* API Status badge */}
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-widest ${
                                     pbiStatus === null
                                         ? 'bg-slate-800 text-slate-500 border-slate-700'
                                         : pbiStatus.configured
@@ -187,7 +292,7 @@ export default function Dashboard() {
                                 </span>
                                 {/* Embed badge */}
                                 {powerBIEmbedUrl && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 uppercase tracking-widest">
                                         Report Embedded
                                     </span>
                                 )}

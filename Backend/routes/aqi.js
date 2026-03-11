@@ -1,12 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const Station = require('../models/Station');
+const supabase = require('../lib/supabase');
 
 // GET aggregate AQI summary stats
 router.get('/summary', async (req, res) => {
     try {
-        const stations = await Station.find();
+        const { data: stations, error } = await supabase
+            .from('stations')
+            .select('*');
+
+        if (error) throw error;
+
         const total = stations.length;
+        if (total === 0) {
+            return res.json({ total: 0, avgAqi: 0, hazardous: 0, safe: 0, requireAttention: 0, topPolluted: [] });
+        }
+
         const avgAqi = Math.round(stations.reduce((sum, s) => sum + s.aqi, 0) / total);
         const hazardous = stations.filter((s) => s.status === 'Hazardous' || s.status === 'Very Unhealthy').length;
         const safe = stations.filter((s) => s.status === 'Good' || s.status === 'Moderate').length;
@@ -28,7 +37,14 @@ router.get('/summary', async (req, res) => {
 // GET 7-day trend data (simulated from station trend arrays)
 router.get('/trend', async (req, res) => {
     try {
-        const stations = await Station.find().limit(5);
+        const { data: stations, error } = await supabase
+            .from('stations')
+            .select('aqi, trend')
+            .limit(5);
+
+        if (error) throw error;
+        if (stations.length === 0) return res.json([]);
+
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const trend = days.map((day, i) => {
             const avgAqi = Math.round(

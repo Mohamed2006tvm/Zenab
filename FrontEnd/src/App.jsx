@@ -14,6 +14,8 @@ import Reports from './pages/Reports';
 import Profile from './pages/Profile';
 import Analyze from './pages/Analyze';
 import HardwareTab from './components/HardwareTab';
+import SystemControl from './pages/SystemControl';
+import About from './pages/About';
 import NotFound from './pages/NotFound';
 
 
@@ -31,6 +33,7 @@ export default function App() {
               <Route path="/map" element={<MapPage />} />
               <Route path="/ai-insights" element={<AIInsights />} />
               <Route path="/hardware" element={<HardwareTab />} />
+              <Route path="/about" element={<About />} />
 
               {/* Protected */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -38,6 +41,7 @@ export default function App() {
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
+              <Route path="/system-control" element={<ProtectedRoute><SystemControl /></ProtectedRoute>} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />

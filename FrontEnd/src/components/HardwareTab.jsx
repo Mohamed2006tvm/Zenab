@@ -108,6 +108,27 @@ export default function HardwareTab() {
   const [selected, setSelected] = useState(null);
   const [imgFailed, setImgFailed] = useState({});
 
+  // --- Live Sensor Simulation ---
+  const [liveData, setLiveData] = useState({
+    aqi: 45,
+    temp: 24.2,
+    co2: 412,
+    lastUpdate: new Date()
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLiveData(prev => ({
+        aqi: Math.max(10, Math.min(450, Math.round(prev.aqi + (Math.random() - 0.5) * 4))),
+        temp: parseFloat((prev.temp + (Math.random() - 0.5) * 0.4).toFixed(1)),
+        co2: Math.max(300, Math.min(1000, Math.round(prev.co2 + (Math.random() - 0.5) * 10))),
+        lastUpdate: new Date()
+      }));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+  // -----------------------------
+
   useEffect(() => {
     const fn = (e) => { if (e.key === 'Escape') setSelected(null); };
     window.addEventListener('keydown', fn);
@@ -126,6 +147,40 @@ export default function HardwareTab() {
         <p className="hw-sub">
           Explore the modular IoT components and biological filters that power our urban air purification technology.
         </p>
+
+        {/* Live Monitoring Summary */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+          <div className="bg-slate-900/50 border border-emerald-500/20 rounded-2xl p-4 backdrop-blur-md flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🌫️</span>
+              <div className="text-left">
+                <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Live AQI</div>
+                <div className="text-emerald-400 font-black text-xl leading-tight">{liveData.aqi}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-600 font-mono">ZEN-01</div>
+          </div>
+          <div className="bg-slate-900/50 border border-cyan-500/20 rounded-2xl p-4 backdrop-blur-md flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🌡️</span>
+              <div className="text-left">
+                <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Temperature</div>
+                <div className="text-cyan-400 font-black text-xl leading-tight">{liveData.temp}°C</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-600 font-mono">NODE-A</div>
+          </div>
+          <div className="bg-slate-900/50 border border-purple-500/20 rounded-2xl p-4 backdrop-blur-md flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">☣️</span>
+              <div className="text-left">
+                <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">CO₂ Level</div>
+                <div className="text-purple-400 font-black text-xl leading-tight">{liveData.co2} ppm</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-600 font-mono">SENS-VOC</div>
+          </div>
+        </div>
       </header>
 
       <div className="hw-diagram-wrap">

@@ -1,8 +1,5 @@
-const mongoose = require('mongoose');
+const supabase = require('./lib/supabase');
 require('dotenv').config();
-const Station = require('./models/Station');
-
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/zenab';
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function genTrend(baseAqi) {
@@ -56,24 +53,31 @@ const cities = [
 
 async function seed() {
     try {
-        await mongoose.connect(MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+        console.log('🚀 Starting Supabase Seeding...');
 
-        await Station.deleteMany({});
+        // Clear existing stations
+        const { error: deleteError } = await supabase
+            .from('stations')
+            .delete()
+            .neq('city', '---'); // Hack to delete all since we need a filter
+
+        if (deleteError) throw deleteError;
         console.log('🗑️  Cleared existing stations');
 
         const stationsWithStatus = cities.map((c) => ({
             ...c,
             status: getStatus(c.aqi),
             trend: genTrend(c.aqi),
-            updatedAt: new Date(),
+            updated_at: new Date(),
         }));
 
-        await Station.insertMany(stationsWithStatus);
-        console.log(`✅ Seeded ${stationsWithStatus.length} stations`);
+        const { error: insertError } = await supabase
+            .from('stations')
+            .insert(stationsWithStatus);
 
-        await mongoose.connection.close();
-        console.log('🔌 Connection closed');
+        if (insertError) throw insertError;
+        console.log(`✅ Seeded ${stationsWithStatus.length} stations into Supabase`);
+
         process.exit(0);
     } catch (err) {
         console.error('❌ Seed error:', err.message);
