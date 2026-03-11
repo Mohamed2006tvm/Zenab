@@ -1,12 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const Station = require('../models/Station');
+const supabase = require('../lib/supabase');
 
 // GET all stations
 router.get('/', async (req, res) => {
     try {
-        const stations = await Station.find().sort({ aqi: -1 });
-        res.json(stations);
+        const { data, error } = await supabase
+            .from('stations')
+            .select('*')
+            .order('aqi', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -15,9 +20,15 @@ router.get('/', async (req, res) => {
 // GET station by ID
 router.get('/:id', async (req, res) => {
     try {
-        const station = await Station.findById(req.params.id);
-        if (!station) return res.status(404).json({ error: 'Station not found' });
-        res.json(station);
+        const { data, error } = await supabase
+            .from('stations')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Station not found' });
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -26,8 +37,13 @@ router.get('/:id', async (req, res) => {
 // GET stations by city
 router.get('/city/:city', async (req, res) => {
     try {
-        const stations = await Station.find({ city: new RegExp(req.params.city, 'i') });
-        res.json(stations);
+        const { data, error } = await supabase
+            .from('stations')
+            .select('*')
+            .ilike('city', `%${req.params.city}%`);
+
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

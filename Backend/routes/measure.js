@@ -3,18 +3,15 @@ const router = express.Router();
 const axios = require('axios');
 const FormData = require('form-data');
 const multer = require('multer');
-const Measurement = require('../models/Measurement');
+const supabase = require('../lib/supabase');
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ─── Power BI Push Helper ─────────────────────────────────────────────────────
-// Pushes a single measurement row to a Power BI Streaming Dataset.
-// The push URL is set via POWERBI_PUSH_URL in .env (no OAuth needed).
-// Failure is logged but does NOT fail the main response.
 async function pushToPowerBI(data) {
     const pushUrl = process.env.POWERBI_PUSH_URL;
-    if (!pushUrl) return; // not configured — skip silently
+    if (!pushUrl) return; 
 
     const row = [{
         timestamp: new Date().toISOString(),
@@ -37,12 +34,11 @@ async function pushToPowerBI(data) {
     }
 }
 
-// POST /api/measure/analyze  — forward image to ML service, save result, push to Power BI
+// POST /api/measure/analyze 
 router.post('/analyze', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
 
-        // Build multipart form for the Python ML service
         const form = new FormData();
         form.append('image', req.file.buffer, {
             filename: req.file.originalname,
@@ -56,50 +52,68 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
         const data = mlRes.data;
 
-        // Persist to MongoDB
-        const measurement = new Measurement({
-            pm25: data.pm25,
-            pm10: data.pm10,
-            aqi: data.aqi,
-            status: data.status,
-            confidence: data.confidence,
-            detections: data.detections,
-            imageFile: req.file.originalname,
-            simulated: data.simulated || false,
-            zenabId: req.body.zenabId,
-        });
-        await measurement.save();
+        // Persist to Supabase
+        const { data: measurement, error } = await supabase
+            .from('measurements')
+            .insert([{
+                pm25: data.pm25,
+                pm10: data.pm10,
+                aqi: data.aqi,
+                status: data.status,
+                confidence: data.confidence,
+                detections: data.detections,
+                image_file: req.file.originalname,
+                simulated: data.simulated || false,
+                zenab_id: req.body.zenabId,
+            }])
+            .select()
+            .single();
 
-        // Push to Power BI (fire-and-forget — does not block response)
+        if (error) throw error;
+
+        // Push to Power BI
         pushToPowerBI(data);
 
-        res.json({ ...data, id: measurement._id, savedAt: measurement.createdAt });
+        res.json({ ...data, id: measurement.id, savedAt: measurement.created_at });
     } catch (err) {
         if (err.code === 'ECONNREFUSED') {
-            return res.status(503).json({ error: 'ML service is not running. Start it with: python3 MLService/app.py' });
+            return res.status(503).json({ error: 'ML service is not running.' });
         }
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/measure/history — last 50 measurements
+// GET /api/measure/history
 router.get('/history', async (req, res) => {
     try {
         const { zenabId } = req.query;
-        const filter = zenabId ? { zenabId } : {};
-        const measurements = await Measurement.find(filter).sort({ createdAt: -1 }).limit(50);
-        res.json(measurements);
+        let query = supabase.from('measurements').select('*').order('created_at', { ascending: false }).limit(50);
+        
+        if (zenabId) {
+            query = query.eq('zenab_id', zenabId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// GET /api/measure/latest — the most recent single measurement
+// GET /api/measure/latest
 router.get('/latest', async (req, res) => {
     try {
-        const m = await Measurement.findOne().sort({ createdAt: -1 });
-        if (!m) return res.status(404).json({ error: 'No measurements yet' });
-        res.json(m);
+        const { data, error } = await supabase
+            .from('measurements')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
+        if (!data) return res.status(404).json({ error: 'No measurements yet' });
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
